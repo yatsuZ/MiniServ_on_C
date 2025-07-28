@@ -1,3 +1,5 @@
+/// INCLUDE
+
 #include <unistd.h>
 #include <stdlib.h>
 #include <sys/types.h>          /* See NOTES */
@@ -6,11 +8,16 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 
+// DEFINE
+
 #define HELLO "HELLO WORLD!\n"
 #define ERR_N_PARAM "y a pas le bon nombres de parametre.\n"
 #define ERR_INIT_SOCKET "Errueur initialisation de la socket.\n"
 #define ERR_PARAM_SERV "Errueur Param SERV.\n"
 #define ERR_OTHER "ERR IDK.\n"
+
+/// STRUCT
+
 
 typedef struct s_client
 {
@@ -21,6 +28,7 @@ typedef struct s_client
 	size_t id;
 } client;
 
+// UTILS
 
 u_int16_t get_port(char *str)
 {
@@ -37,6 +45,15 @@ void my_print(char *str, int fd)
 	write(fd, str, len);
 }
 
+int	print_err(char *str, int socket_fd, client *array_of_client)
+{
+	my_print(str, STDERR_FILENO);
+	free_clean(socket_fd, array_of_client);
+	return (1);
+}
+
+// DESTRUCTEUR
+
 void free_clean(int socket_fd, client *array_of_client)
 {
 	if (socket_fd >= 0)
@@ -52,14 +69,6 @@ void free_clean(int socket_fd, client *array_of_client)
 		
 	}
 }
-
-int	print_err(char *str, int socket_fd, client *array_of_client)
-{
-	my_print(str, STDERR_FILENO);
-	free_clean(socket_fd, array_of_client);
-	return (1);
-}
-
 
 int	main(int argc, char **argv)
 {
@@ -79,6 +88,7 @@ int	main(int argc, char **argv)
 		return (print_err(ERR_N_PARAM, 2, array_of_client));
 
 	int socketfd = socket(AF_INET, SOCK_STREAM, 0);
+
 	if (socketfd < 0)
 		return (print_err(ERR_INIT_SOCKET, 2, array_of_client) , 1);
 
