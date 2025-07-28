@@ -6,3 +6,5 @@ prendre en parametre juste le port.
 que des gens sy connecte et que je leur cree un id 
 
 Un message quand quelqun se connecte se deconecte et quand quelqun envoye un message a tout le monde.
+
+verifier leak et ecoute etc pouvoir quite proprement avec ctrl-C apelle systemem, ecrire sur la srortie err
