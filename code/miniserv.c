@@ -93,21 +93,21 @@ int	main(int argc, char **argv)
 	if (listen(socketfd, SOMAXCONN) < 0)
 		return (print_err(ERR_PARAM_SERV, 2, array_of_client) , 1);
 
-	// while (1)
-	// {		
-	// 	// ajouter
-	// 	// msg
-	// 	// quite
-	
-	// 	// accept client connection
-	// 	if ((*client_fd = accept(socketfd,
-	// 							 (struct sockaddr *)&client_addr,
-	// 							 &client_addr_len)) < 0)
-	// 	{
-	// 		return (print_err(ERR_PARAM_SERV, 2, array_of_client) , 1);
-	// 	}
+	while (1)
+	{		
+		// ajouter
+		// msg
+		// quite
 
-	// }
+		// accept client connection
+		// if ((*client_fd = accept(socketfd,
+		// 						 (struct sockaddr *)&client_addr,
+		// 						 &client_addr_len)) < 0)
+		// {
+		// 	return (print_err(ERR_PARAM_SERV, 2, array_of_client) , 1);
+		// }
+
+	}
 
 	free_clean(socketfd, array_of_client);
 	return (0);
