@@ -17,7 +17,6 @@
 
 /// STRUCT
 
-
 typedef struct s_client
 {
 	struct sockaddr_in client_addr;
