@@ -2,11 +2,12 @@
 
 #include <unistd.h>
 #include <stdlib.h>
-#include <sys/types.h>          /* See NOTES */
+#include <sys/types.h>
 #include <sys/socket.h>
 #include <bits/socket.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
+#include <sys/select.h>
 
 // DEFINE
 
@@ -27,6 +28,25 @@ typedef struct s_client
 	int libre;
 	size_t id;
 } client;
+
+// DESTRUCTEUR
+
+void free_clean(int socket_fd, client *array_of_client)
+{
+	if (socket_fd >= 0)
+		close(socket_fd);
+	if (array_of_client)
+	{
+		size_t	i = 0;
+		while (i < SOMAXCONN)
+		{
+			if (array_of_client[i].client_fd >= 0)
+				close(array_of_client[i].client_fd);
+			i++;
+		}
+		
+	}
+}
 
 // UTILS
 
@@ -52,37 +72,21 @@ int	print_err(char *str, int socket_fd, client *array_of_client)
 	return (1);
 }
 
-// DESTRUCTEUR
-
-void free_clean(int socket_fd, client *array_of_client)
-{
-	if (socket_fd >= 0)
-		close(socket_fd);
-	if (array_of_client)
-	{
-		size_t	i = 0;
-		while (i < SOMAXCONN)
-		{
-			if ((*array_of_client).client_fd >= 0)
-				close((*array_of_client).client_fd);
-		}
-		
-	}
-}
-
 int	main(int argc, char **argv)
 {
-	client array_of_client[SOMAXCONN];
+	int	retval;
+	client	array_of_client[SOMAXCONN];
 
-	size_t	i_ac = 0;
-	while (i_ac < SOMAXCONN)
+	size_t	n_ac = 0;
+	while (n_ac < SOMAXCONN)
 	{
-		array_of_client[i_ac].libre = 1;
-		array_of_client[i_ac].id = -1;
-		array_of_client[i_ac].client_fd = -1;
-		array_of_client[i_ac].client_addr_len = sizeof(array_of_client[i_ac].client_addr);
+		array_of_client[n_ac].libre = 1;
+		array_of_client[n_ac].id = -1;
+		array_of_client[n_ac].client_fd = -1;
+		array_of_client[n_ac].client_addr_len = sizeof(array_of_client[n_ac].client_addr);
+		n_ac++;
 	}
-	i_ac = 0;
+	n_ac = 0;
 
 	if (argc <= 1 || !argv)
 		return (print_err(ERR_N_PARAM, 2, array_of_client));
@@ -103,8 +107,21 @@ int	main(int argc, char **argv)
 	if (listen(socketfd, SOMAXCONN) < 0)
 		return (print_err(ERR_PARAM_SERV, 2, array_of_client) , 1);
 
+	fd_set	rfds;
+
+	FD_ZERO(&rfds);
+	FD_SET(socketfd, &rfds);
+
 	while (1)
-	{		
+	{
+		retval = select(1, &rfds, NULL, NULL, NULL);
+
+		/* Don't rely on the value of tv now! */
+		if (retval == -1)
+			return (print_err(ERR_OTHER, 2, array_of_client) , 1);
+		else if (retval)
+			my_print("Data is available now.\n", 1);
+
 		// ajouter
 		// msg
 		// quite
