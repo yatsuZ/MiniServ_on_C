@@ -4,11 +4,9 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <bits/socket.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
 #include <sys/select.h>
-
+#include <netinet/in.h>
+#include <arpa/inet.h>
 // DEFINE
 
 #define HELLO "HELLO WORLD!\n"
@@ -98,30 +96,53 @@ int	main(int argc, char **argv)
 
 	struct sockaddr_in address;
 	address.sin_family = AF_INET;
-	address.sin_addr.s_addr = INADDR_LOOPBACK;
-	address.sin_port = get_port(argv[1]);
+	address.sin_addr.s_addr = inet_addr("127.0.0.1");// pas autorise
+	address.sin_port = htons(get_port(argv[1]));
 
-
-	if (bind(socketfd, (const struct sockaddr *)(&address), sizeof(address) < 0))
+#include <stdio.h>
+	if (bind(socketfd, (const struct sockaddr *)(&address), sizeof(address)) < 0)
+	{
+		perror("bind");
+		my_print("ici", 1);
 		return (print_err(ERR_PARAM_SERV, 2, array_of_client) , 1);
+	}
 	if (listen(socketfd, SOMAXCONN) < 0)
+	{
+		my_print("la", 1);
 		return (print_err(ERR_PARAM_SERV, 2, array_of_client) , 1);
+	}
 
+	int	taller_fd = socketfd;
 	fd_set	rfds;
 
-	FD_ZERO(&rfds);
-	FD_SET(socketfd, &rfds);
 
 	while (1)
 	{
-		retval = select(1, &rfds, NULL, NULL, NULL);
+		FD_ZERO(&rfds);
+		FD_SET(socketfd, &rfds);
+		// FD_SET(0, &rfds);
+		retval = 0;
+		retval = select(taller_fd + 1, &rfds, NULL, NULL, NULL);
 
 		/* Don't rely on the value of tv now! */
-		if (retval == -1)
+		if (retval <= -1)
 			return (print_err(ERR_OTHER, 2, array_of_client) , 1);
 		else if (retval)
-			my_print("Data is available now.\n", 1);
+		{
+			if (FD_ISSET(socketfd, &rfds))
+			{
+				int client_fd;
+				struct sockaddr_in client_addr;
+				socklen_t client_addr_len = sizeof(client_addr);
 
+				client_fd = accept(socketfd, (struct sockaddr *)&client_addr, &client_addr_len);
+				if (client_fd < 0)
+					return (print_err(ERR_PARAM_SERV, 2, array_of_client) , 1);
+				printf("Un nouveau client est connecté ! FD = %d\n", client_fd);
+				// Tu peux ajouter ce fd à un tableau de clients ici, si tu veux suivre plusieurs
+			}
+			// Savoirs qui est 
+		}
 		// ajouter
 		// msg
 		// quite
