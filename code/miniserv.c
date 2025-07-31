@@ -141,6 +141,54 @@ int	newC(client	*aray_c, int sfd, size_t *newid)
 	return (aray_c[i].client_fd);
 }
 
+
+void	client_Event(client	*aray_c, int sfd, fd_set *rfds)
+{
+	size_t	i = 0;
+	int find = 1;
+
+	while (i < SOMAXCONN && find)
+	{
+		if (aray_c[i].libre == 0 && (FD_ISSET(aray_c[i].client_fd, rfds)))
+			find = 0;
+		else
+			i++;
+	}
+	if (find)
+		end(aray_c, sfd, ERR_OTHER);
+
+
+	char	buff[100001];
+	bzero(buff, 100001);
+	char	*new_msg = "client %d : %s";
+	ssize_t	res = 0;
+	res = recv(aray_c[i].client_fd, buff, 100000, 0);
+
+	if (res <= 0)
+	{
+		char	*msg_exit_c = "serveur : client %d vient de quitter\n";
+		char	msg[strlen(msg_exit_c) + get_nbr_char(aray_c[i].id) - 2];
+
+		sprintf(msg, msg_exit_c, aray_c[i].id);
+		sendmessage(aray_c, msg);
+		aray_c[i].libre = 1;
+		aray_c[i].id = -1;
+		if (aray_c[i].client_fd >= 0)
+			close(aray_c[i].client_fd);
+		aray_c[i].client_fd = -1;
+		if (res < 0)
+			end(aray_c, sfd, ERR_OTHER);
+	}
+	else
+	{
+		char	msgc[strlen(new_msg) + get_nbr_char(aray_c[i].id) + res + - 3];
+		sprintf(msgc, new_msg, aray_c[i].id, buff);
+		sendmessage(aray_c, msgc);
+		// if (buff[0] == 'S' && buff[1] == '\n' && buff[2] == '\0') // teste en securite valgrind leak etc
+		// 	end(aray_c, sfd, NULL);
+	}
+}
+
 int	exec(client	*aray_c, int sfd)
 {
 	size_t	newid = 0;
@@ -148,7 +196,6 @@ int	exec(client	*aray_c, int sfd)
 	int	taller_fd = sfd;
 	fd_set	rfds;
 
-	// char	*msg_exit_c = "serveur : client %d vient de quitter\n";
 	// char	*msg_c = "client %ld :";
 
 	while (1)
@@ -182,9 +229,7 @@ int	exec(client	*aray_c, int sfd)
 					taller_fd = newfd;
 			}
 			else
-			{
-				my_print("OTHER\n", 2);
-			}
+				client_Event(aray_c, sfd, &rfds);
 		}
 	}
 }
