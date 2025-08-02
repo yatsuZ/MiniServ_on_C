@@ -43,6 +43,34 @@ int	get_nbr_char(size_t	nbr)
 	return (get_nbr_char(nbr / 10) + 1);
 }
 
+int extract_message(char **buf, char **msg)
+{
+	char	*newbuf;
+	int	i;
+
+	*msg = 0;
+	if (*buf == 0)
+		return (0);
+	i = 0;
+	while ((*buf)[i])
+	{
+		if ((*buf)[i] == '\n')
+		{
+			newbuf = calloc(1, sizeof(*newbuf) * (strlen(*buf + i + 1) + 1));
+			if (newbuf == 0)
+				return (-1);
+			strcpy(newbuf, *buf + i + 1);
+			*msg = *buf;
+			(*msg)[i + 1] = 0;
+			*buf = newbuf;
+			return (1);
+		}
+		i++;
+	}
+	return (0);
+}
+
+
 // DESTRUCTEUR
 
 void	clean_client(client	*c)
@@ -72,6 +100,7 @@ void	end(client *lst_client, int socketfd, char *msg)
 		my_print(msg, 2);
 		exit(1);
 	}
+	exit(0);
 }
 
 // INIT
@@ -101,12 +130,12 @@ struct sockaddr_in init_adress(char *av1)
 
 // event
 
-void	sendmessage(client	*aray_c, char *msg)
+void	sendmessage(client	*aray_c, char *msg, size_t	index)
 {
 	size_t	i = 0;
 	while (i < SOMAXCONN)
 	{
-		if (aray_c[i].libre == 0)
+		if (aray_c[i].libre == 0 && i != index)
 			send(aray_c[i].client_fd, msg, strlen(msg), 0);
 		i++;
 	}
@@ -132,11 +161,11 @@ int	newC(client	*aray_c, int sfd, size_t *newid)
 	aray_c[i].id = *newid;
 	*newid = *newid + 1;
 
-	char	*msg_new_c = "serveur : le client %ld vient d'arriver\n";
+	char	*msg_new_c = "server: client %ld just arrived\n";
 	char	msg[strlen(msg_new_c) + get_nbr_char(aray_c[i].id) - 2];
 
 	sprintf(msg, msg_new_c, aray_c[i].id);
-	sendmessage(aray_c, msg);
+	sendmessage(aray_c, msg, i);
 
 	return (aray_c[i].client_fd);
 }
@@ -158,19 +187,21 @@ void	client_Event(client	*aray_c, int sfd, fd_set *rfds)
 		end(aray_c, sfd, ERR_OTHER);
 
 
-	char	buff[100001];
+	char	*buff = malloc(sizeof(char *) * 100001);
 	bzero(buff, 100001);
-	char	*new_msg = "client %d : %s";
+	char	*new_msg = "client %d: %s";
 	ssize_t	res = 0;
 	res = recv(aray_c[i].client_fd, buff, 100000, 0);
 
 	if (res <= 0)
 	{
-		char	*msg_exit_c = "serveur : client %d vient de quitter\n";
+		free(buff);
+		buff = 0;
+		char	*msg_exit_c = "server: client %d just left\n";
 		char	msg[strlen(msg_exit_c) + get_nbr_char(aray_c[i].id) - 2];
 
 		sprintf(msg, msg_exit_c, aray_c[i].id);
-		sendmessage(aray_c, msg);
+		sendmessage(aray_c, msg, i);
 		aray_c[i].libre = 1;
 		aray_c[i].id = -1;
 		if (aray_c[i].client_fd >= 0)
@@ -181,11 +212,23 @@ void	client_Event(client	*aray_c, int sfd, fd_set *rfds)
 	}
 	else
 	{
-		char	msgc[strlen(new_msg) + get_nbr_char(aray_c[i].id) + res + - 3];
-		sprintf(msgc, new_msg, aray_c[i].id, buff);
-		sendmessage(aray_c, msgc);
-		// if (buff[0] == 'S' && buff[1] == '\n' && buff[2] == '\0') // teste en securite valgrind leak etc
-		// 	end(aray_c, sfd, NULL);
+		char *send;
+		send = NULL;
+		int c_fini = 0;
+		if (buff[0] == 'S' && buff[1] == '\n' && buff[2] == '\0') // teste en securite valgrind leak etc
+			c_fini = 1;
+		while (extract_message(&buff, &send))
+		{
+			char	msgc[strlen(new_msg) + get_nbr_char(aray_c[i].id) + strlen(send) - 3];
+			sprintf(msgc, new_msg, aray_c[i].id, send);
+			sendmessage(aray_c, msgc, i);
+			free(send);
+			send = NULL;
+		}
+		free(buff);
+		buff = NULL;
+		if (c_fini)
+			end(aray_c, sfd, NULL);
 	}
 }
 
@@ -258,3 +301,5 @@ int	main(int argc, char **argv)
 	exec(array_of_client, socketfd);
 	return (end(array_of_client, socketfd, NULL), 0);
 }
+
+// faire un meilleur extracteur de message
