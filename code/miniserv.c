@@ -43,6 +43,26 @@ int	get_nbr_char(size_t	nbr)
 	return (get_nbr_char(nbr / 10) + 1);
 }
 
+char *str_join(char *buf, char *add)
+{
+	char	*newbuf;
+	int		len;
+
+	if (buf == 0)
+		len = 0;
+	else
+		len = strlen(buf);
+	newbuf = malloc(sizeof(*newbuf) * (len + strlen(add) + 1));
+	if (newbuf == 0)
+		return (0);
+	newbuf[0] = 0;
+	if (buf != 0)
+		strcat(newbuf, buf);
+	free(buf);
+	strcat(newbuf, add);
+	return (newbuf);
+}
+
 int extract_message(char **buf, char **msg)
 {
 	char	*newbuf;
@@ -170,6 +190,17 @@ int	newC(client	*aray_c, int sfd, size_t *newid)
 	return (aray_c[i].client_fd);
 }
 
+int	have_nl(char *str)
+{
+	size_t	i = 0;
+	while (str[i])
+	{
+		if (str[i] == '/n')
+			return (1);
+		i++;
+	}
+	return (0);
+}
 
 void	client_Event(client	*aray_c, int sfd, fd_set *rfds)
 {
@@ -187,16 +218,32 @@ void	client_Event(client	*aray_c, int sfd, fd_set *rfds)
 		end(aray_c, sfd, ERR_OTHER);
 
 
-	char	*buff = malloc(sizeof(char *) * 100001);
-	bzero(buff, 100001);
+	char	*buff = malloc(sizeof(char *) * 10001);
+	bzero(buff, 10001);
 	char	*new_msg = "client %d: %s";
+	char *all = NULL;
 	ssize_t	res = 0;
-	res = recv(aray_c[i].client_fd, buff, 100000, 0);
+	ssize_t	some_res = 0;
 
-	if (res <= 0)
+	res = recv(aray_c[i].client_fd, buff, 10000, 0);
+	while (res > 0)
 	{
-		free(buff);
-		buff = 0;
+		some_res += res;
+		buff[res] = 0;
+		all = str_join(all, buff);
+		bzero(buff, 10001);
+		res = recv(aray_c[i].client_fd, buff, 10000, 0);
+		if (have_nl(buff))
+			break;
+	}
+	some_res += res;
+	buff[res] = 0;
+	all = str_join(all, buff);
+	free(buff);
+	buff = NULL;
+
+	if (some_res <= 0)
+	{
 		char	*msg_exit_c = "server: client %d just left\n";
 		char	msg[strlen(msg_exit_c) + get_nbr_char(aray_c[i].id) - 2];
 
@@ -215,18 +262,21 @@ void	client_Event(client	*aray_c, int sfd, fd_set *rfds)
 		char *send;
 		send = NULL;
 		int c_fini = 0;
-		if (buff[0] == 'S' && buff[1] == '\n' && buff[2] == '\0') // teste en securite valgrind leak etc
+		if (all[0] == 'S' && all[1] == '\n' && all[2] == '\0') // teste en securite valgrind leak etc
 			c_fini = 1;
-		while (extract_message(&buff, &send))
+		while (extract_message(&all, &send))
 		{
-			char	msgc[strlen(new_msg) + get_nbr_char(aray_c[i].id) + strlen(send) - 3];
-			sprintf(msgc, new_msg, aray_c[i].id, send);
-			sendmessage(aray_c, msgc, i);
-			free(send);
-			send = NULL;
+			if (send)
+			{
+				char	msgc[strlen(new_msg) + get_nbr_char(aray_c[i].id) + strlen(send) - 2];
+				sprintf(msgc, new_msg, aray_c[i].id, send);
+				sendmessage(aray_c, msgc, i);
+				free(send);
+				send = NULL;
+			}
 		}
-		free(buff);
-		buff = NULL;
+		free(all);
+		all = NULL;
 		if (c_fini)
 			end(aray_c, sfd, NULL);
 	}
@@ -276,7 +326,7 @@ int	exec(client	*aray_c, int sfd)
 		}
 	}
 }
-
+ 
 int	main(int argc, char **argv)
 {
 	client	array_of_client[SOMAXCONN];
@@ -301,5 +351,3 @@ int	main(int argc, char **argv)
 	exec(array_of_client, socketfd);
 	return (end(array_of_client, socketfd, NULL), 0);
 }
-
-// faire un meilleur extracteur de message
